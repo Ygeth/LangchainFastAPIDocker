@@ -13,3 +13,4 @@ chromadb
 pypdf
 pyowm
 load_dotenv
+langgraph

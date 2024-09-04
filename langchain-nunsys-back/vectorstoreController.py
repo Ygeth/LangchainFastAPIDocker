@@ -10,17 +10,15 @@ from langchain_community.document_loaders import PyPDFLoader
 from os import listdir
 from os.path import isfile, join
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.chains import create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.chains import create_history_aware_retriever
 from langchain_core.prompts import MessagesPlaceholder
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
-from langchain.schema import (
-    AIMessage,
-)
+from langchain.schema import (AIMessage)
 
 
 class VectorstoreController:
@@ -30,6 +28,12 @@ class VectorstoreController:
         self.text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
         self.llm = llm
         self.store = {}
+        self.retriever = None
+        self.memory = None
+        self.ragChain = None 
+        self.conversationalRagChain = None 
+        
+        
         
     def initialize_db(self):
         embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
@@ -45,77 +49,128 @@ class VectorstoreController:
         return vector_store
 
 
-    ## RAG Section
     def get_session_history(self, session_id: str) -> BaseChatMessageHistory:
-      if session_id not in self.store:
-          self.store[session_id] = ChatMessageHistory()
-      return self.store[session_id]
+        print(session_id)
+        print(self.store)
+        if session_id not in self.store:
+            self.store[session_id] = ChatMessageHistory()
+        return self.store[session_id]
 
 
     def query(self, text: str):
-      retriever = self.db.as_retriever()
-      
-      system_prompt = (
-          "Eres un asistente para tareas de preguntas y respuestas. "
-          "Usa el siguiente contexto para responder la pregunta. "
-          "Si no sabes la respuesta, di que no la sabes. "
-          "Usa un máximo de tres oraciones y mantén la respuesta concisa.."
-          "\n\n"
-          "{context}"
-      )
-      
 
-      # History Aware
-      history_prompt_text = ("Dado un historial de chat y la última pregunta del usuario, "
-                  " que podría hacer referencia al contexto en el historial de chat, "
-                  " formula una pregunta independiente que pueda entenderse sin el historial de chat. "
-                  " NO respondas la pregunta, solo reformúlala si es necesario y, si no, devuélvela tal cual")
-      history_prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", history_prompt_text),
-            MessagesPlaceholder("chat_history"),
-            ("human", "{input}"),
-        ]
-      )
-      history_aware_retriever = create_history_aware_retriever(self.llm, retriever, history_prompt)
-      
-      qa_prompt = ChatPromptTemplate.from_messages(
-          [
-              ("system", system_prompt),
-              MessagesPlaceholder("chat_history"),
-              ("human", "{input}"),
-          ]
-      )
+        # History Aware
+        history_prompt_text = ("Dado un historial de chat y la última pregunta del usuario, "
+                    " que podría hacer referencia al contexto en el historial de chat, "
+                    " formula una pregunta independiente que pueda entenderse sin el historial de chat. "
+                    " NO respondas la pregunta, solo reformúlala si es necesario y, si no, devuélvela tal cual")
+        history_prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", history_prompt_text),
+                MessagesPlaceholder("chat_history"),
+                ("human", "{input}"),
+            ]
+        )
+        history_aware_retriever = create_history_aware_retriever(self.llm, self.getRetriever(), history_prompt)
+        
+    #     qa_prompt = ChatPromptTemplate.from_messages(
+    #         [
+    #             ("system", system_prompt),
+    #             MessagesPlaceholder("chat_history"),
+    #             ("human", "{input}"),
+    #         ]
+    #     )
 
-      question_answer_chain = create_stuff_documents_chain(self.llm, qa_prompt)
-      rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+    #     question_answer_chain = create_stuff_documents_chain(self.llm, qa_prompt)
+        # rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
 
-      
-      # question_answer_chain = create_stuff_documents_chain(self.llm, prompt)
-      rag_chain = create_retrieval_chain(retriever, question_answer_chain)
-      
-      conversational_rag_chain = RunnableWithMessageHistory(
-          rag_chain,
-          self.get_session_history,
-          input_messages_key="input",
-          history_messages_key="chat_history",
-          output_messages_key="answer",
-      )
-      
-      response = conversational_rag_chain.invoke(
-        {"input": text},
-        config={"configurable": {"session_id": "abc123"}},  # constructs a key "abc123" in `store`.
-      )
+        
+    #     # question_answer_chain = create_stuff_documents_chain(self.llm, prompt)
+    #     rag_chain = create_retrieval_chain(retriever, question_answer_chain)
 
-      # print(response['answer'])
-      return (response, self.store["abc123"])
+    #     conversational_rag_chain = RunnableWithMessageHistory(
+    #         rag_chain,
+    #         self.get_session_history,
+    #         input_messages_key="input",
+    #         history_messages_key="chat_history",
+    #         output_messages_key="answer",
+    #     )
+        
+    #     response = conversational_rag_chain.invoke(
+    #         {"input": text},
+    #         config={"configurable": {"session_id": "abc123"}},  # constructs a key "abc123" in `store`.
+    #     )
 
+    #     # print(response['answer'])
+    #     return (response, self.store["abc123"])
+
+    ## Memory
+    # https://python.langchain.com/v0.2/docs/how_to/message_history/
+    def getMemoryRetriever(self):
+        if self.memory == None:
+            # History Aware
+            memory_prompt_text = ("Dado un historial de chat y la última pregunta del usuario, "
+                        " que podría hacer referencia al contexto en el historial de chat, "
+                        " formula una pregunta independiente que pueda entenderse sin el historial de chat. "
+                        " NO respondas la pregunta, solo reformúlala si es necesario y, si no, devuélvela tal cual")
+            memory_prompt = ChatPromptTemplate.from_messages(
+                [
+                    ("system", memory_prompt_text),
+                    MessagesPlaceholder("chat_history"),
+                    ("human", "{input}"),
+                ]
+            )
+            self.memory = create_history_aware_retriever(self.llm, self.getRetriever(), memory_prompt)
+        return self.memory
+        
+    ## RAG Section
+    # https://python.langchain.com/v0.2/docs/tutorials/rag/
+    ## Retrievers and Chains
+    def getRetriever(self):
+        if self.retriever is None:
+            self.retriever = self.db.as_retriever(search_type="similarity", search_kwargs={"k": 6})
+        return self.retriever
     
+    def getQAChain(self):
+        prompt = (
+            "Eres un asistente para tareas de preguntas y respuestas. "
+            "Usa el siguiente contexto para responder la pregunta. "
+            "Si no sabes la respuesta, di que no la sabes. "
+            "Usa un máximo de tres oraciones y mantén la respuesta concisa."
+            "\n\n"
+            "{context}"
+        )
+        
+        qa_prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", prompt),
+                MessagesPlaceholder("chat_history"),
+                ("human", "{input}"),
+            ]
+        )
+        qa_chain = create_stuff_documents_chain(self.llm, qa_prompt)
+        return qa_chain
+    
+    def getRagChain(self):
+        if self.ragChain is None:
+            self.ragChain = create_retrieval_chain(self.getRetriever(), self.getQAChain())
+        return self.ragChain
+    
+    def getConversationalRagChain(self):
+        # if self.conversationalRagChain is None:
+        conversationalRagChain = RunnableWithMessageHistory(
+            self.getRagChain(),
+            self.get_session_history,
+            input_messages_key="input",
+            history_messages_key="chat_history",
+            output_messages_key="answer",
+        )
+        return conversationalRagChain
     
     # CRUD Section
     def get_document(self, uuid: str): 
         self.db.get_by_ids([uuid])
-      
+
     def add_documents(self, document_list: list) -> None:
         uuids = [str(uuid4()) for _ in range(len(document_list))]
         self.db.add_documents(documents=document_list, ids=uuids)
