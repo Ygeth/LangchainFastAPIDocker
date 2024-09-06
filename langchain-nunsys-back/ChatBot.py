@@ -21,19 +21,35 @@ from langchain.agents import initialize_agent, AgentType
 class ChatBot:
   def __init__(self):
     # Initial Prompt
-    systemPrompt = f"Eres el asistente para entrevistas de Ricardo, que quiere ser contratado con Ingeniero de LLMs"
-    self.__systemPrompt = SystemMessage(content=systemPrompt)
-
     self.__llm = ChatOpenAI()
+    self.vecController = VectorstoreController(self.__llm)
+    self.agentController = AgentController(self.__llm, self.vecController.getRetriever())
+
 
   def getLlm(self):
     return self.__llm
   
   # Metodo principal de chat
-  def chat(self, *, userQuery: str, cancelToken=None):
-    # Use RAG
-    # (results, history) = vecController.query(userQuery)
+  def chatConvAgent(self, *, session_id, userQuery: str):
+    config = {"configurable": {"thread_id": session_id}}
+    systemPrompt = '''Eres el asistente para entrevistas con Nunsys de Ricardo residente en Valencia, 
+                      Dispones de varias herramientas, puedes consultar archivos cargados en tu sistema y consultar la metereologia
+                      Los archivos son documentos de Ricardo, como sus certificaciones o su curriculum. 
+                      Con tus respuestas debes conseguir que contraten a Ricardo en Nunsys para el puesto de Desarrollador de LLM.'''
+    convAgent = self.agentController.getConversationalAgent(systemPrompt)
     
+    resp = None
+    for chunk in convAgent.stream({"messages": [SystemMessage(systemPrompt), HumanMessage(content=userQuery)]}, config):
+      print(chunk)
+      print("----")
+      resp = chunk
+    
+    return resp
+    
+  
+  # TEST ZONE, Test of RAG, tools, agents...
+  ## Metodo de testeo para 
+  def chatTest(self, *, userQuery: str):    
     config = {"configurable": {"thread_id": "abc123"}}
     systemPrompt = "Eres el asistente para entrevistas de Ricardo residente en Valencia, puedes buscar en los documentos y consultar el tiempo."
     convAgent = agentController.getConversationalAgent(systemPrompt)
@@ -51,7 +67,24 @@ class ChatBot:
 
     #   print(f"{prefix}: {message.content}\n")
 
+  def chatRAG(self, *, session_id, userQuery: str):
+    # Use RAG
+    (results, history) = self.vecController.query(userQuery)
+    print(f"Respuesta: {results["answer"]}")
+    return results
+  
+  def chatAgentTools(self, *, session_id, userQuery: str):
+    agent = agentController.getAgent()
+    config = {"configurable": {"thread_id": session_id}}
+    # query = "Que tiempo hará mañana en Valencia?"
+    resp = agent.invoke({
+        "chat_history": [SystemMessage(content=systemPrompt)],
+        "input": HumanMessage(content=userQuery)
+      }, config=config)
+    
+    return resp
 
+    
   async def test_chatbot(self):
     while True:
       print("___________")
@@ -59,7 +92,7 @@ class ChatBot:
       if query.lower() == "exit":
         return
 
-      self.chat(userQuery=query)
+      self.chatTest(userQuery=query)
 
       print("\n")
       print("*" * 100)
