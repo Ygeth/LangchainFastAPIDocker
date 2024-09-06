@@ -1,29 +1,18 @@
 import json
 import asyncio
-import collections
 import os
 from dotenv import load_dotenv, find_dotenv
-from vectorstoreController import VectorstoreController
-from typing import List
-# from LlmController import LangchainLlms
 from ChatOpenAI import ChatOpenAI
-from langchain_openai import OpenAIEmbeddings
 from langchain.schema import (
-    AIMessage,
     HumanMessage,
     SystemMessage,
-    Document,
-    BaseMessage
 )
+from vectorstoreController import VectorstoreController
 from agentController import AgentController
-from langchain.agents import initialize_agent, AgentType
 
 class ChatBot:
   def __init__(self):
     # Initial Prompt
-    systemPrompt = f"Eres el asistente para entrevistas de Ricardo, que quiere ser contratado con Ingeniero de LLMs"
-    self.__systemPrompt = SystemMessage(content=systemPrompt)
-
     self.__llm = ChatOpenAI()
 
   def getLlm(self):
