@@ -2,7 +2,8 @@
 from langchain_openai import ChatOpenAI
 # https://python.langchain.com/v0.2/api_reference/openai/chat_models/langchain_openai.chat_models.base.ChatOpenAI.html
 
-# class OpenAI(ChatOpenAI):
+from dotenv import load_dotenv, find_dotenv
+load_dotenv(dotenv_path=find_dotenv())
 
 llm = ChatOpenAI(
     model="gpt-3.5-turbo",

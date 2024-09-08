@@ -10,6 +10,7 @@ from langchain.schema import (
     SystemMessage,
 )
 from agentController import AgentController
+load_dotenv(dotenv_path=find_dotenv())
 
 class ChatBot:
   def __init__(self):
@@ -32,7 +33,7 @@ class ChatBot:
     convAgent = self.agentController.getConversationalAgent(systemPrompt)
     
     resp = None
-    for chunk in convAgent.stream({"messages": [SystemMessage(systemPrompt), HumanMessage(content=userQuery)]}, config):
+    for chunk in convAgent.stream({"messages": [SystemMessage(content=systemPrompt), HumanMessage(content=userQuery)]}, config):
       print(chunk)
       print("----")
       resp = chunk
@@ -45,8 +46,8 @@ class ChatBot:
   def chatTest(self, *, userQuery: str):    
     config = {"configurable": {"thread_id": "abc123"}}
     systemPrompt = "Eres el asistente para entrevistas de Ricardo residente en Valencia, puedes buscar en los documentos y consultar el tiempo."
-    convAgent = agentController.getConversationalAgent(systemPrompt)
-    for chunk in convAgent.stream({"messages": [SystemMessage(systemPrompt), HumanMessage(content=userQuery)]}, config):
+    convAgent = self.agentControlleragentController.getConversationalAgent(systemPrompt)
+    for chunk in convAgent.stream({"messages": [SystemMessage(content=systemPrompt), HumanMessage(content=userQuery)]}, config):
       print(chunk)
       print("----")
       
@@ -67,7 +68,7 @@ class ChatBot:
     return results
   
   def chatAgentTools(self, *, session_id, userQuery: str):
-    agent = agentController.getAgent()
+    agent = self.agentController.getAgent()
     config = {"configurable": {"thread_id": session_id}}
     # query = "Que tiempo hará mañana en Valencia?"
     resp = agent.invoke({
@@ -95,7 +96,6 @@ if __name__ == '__main__':
     print("__________ LAUNCH TEST ChatBot ________")
   
     # Load .env variables
-    load_dotenv(dotenv_path=find_dotenv())
     print("OPENAI_API key: ", os.environ.get("OPENAI_API_KEY"))
     
     bot = ChatBot()
