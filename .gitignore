@@ -5,3 +5,4 @@ langchain-nunsys-back/.venv
 langchain-nunsys-back/__pycache__
 langchain-nunsys-front/.vscode
 .~lock.Prueba Técnica LLM - Ingeniero de IA.docx#
+.env copy
