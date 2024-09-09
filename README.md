@@ -44,12 +44,15 @@ pip install -r requirements.txt
 
 ### Ejecución de la API con FastAPI
 Para iniciar el servidor FastAPI en modo desarrollo, ejecuta:
-```fastapi dev main.py```
+```
+cd langchain-nunsys-back/app
+fastapi dev main.py
+```
 
 ### Pruebas via Cli
 Ejecutar la clase ChatBot.py con 
 ```
-cd ./app
+cd langchain-nunsys-back/app
 python ChatBot.py
 ```
 
